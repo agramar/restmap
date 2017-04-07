@@ -1,0 +1,199 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.co.restMap.restBoardMapper">
+
+	<resultMap id="restBoardMap" type="restBoardVO">
+		<result column="rest_id" property="restId"></result>
+		<result column="category_id" property="categoryId"></result>
+		<result column="holiday_id" property="holidayId"></result>
+		<result column="payment_id" property="paymentId"></result>
+		<result column="etc_info" property="etcInfo"></result>
+		<result column="view_count" property="viewCount"></result>
+		<result column="reg_date" property="regDate"></result>
+		<result column="new_address" property="newAddress"></result>
+		<result column="opening_hours" property="openingHours"></result>
+		<result column="image_url" property="imageUrl"></result>
+		<result column="writer_no" property="writerNo"></result>
+	</resultMap>
+	
+	<resultMap id="restCodeMap" type="restCodeVO">
+		<result column="code_category" property="codeCategory"></result>
+		<result column="code_id" property="codeId"></result>
+		<result column="code_value" property="codeValue"></result>
+	</resultMap>
+	
+	<resultMap id="restCommentMap" type="restCommentVO">
+		<result column="comment_id" property="commentId"></result>
+		<result column="rest_id" property="restId"></result>
+		<result column="writer_no" property="writerNo"></result>
+		<result column="reg_date" property="regDate"></result>
+	</resultMap>
+	
+	<resultMap id="restFileMap" type="restFileVO">
+		<result column="file_id" property="fileId"></result>
+		<result column="ori_file_name" property="oriFileName"></result>
+		<result column="real_file_name" property="realFileName"></result>
+		<result column="file_path" property="filePath"></result>
+		<result column="file_size" property="fileSize"></result>
+		<result column="reg_date" property="regDate"></result>
+	</resultMap>
+	
+	<resultMap id="restMenuMap" type="restMenuVO">
+		<result column="menu_id" property="menuId"></result>
+		<result column="rest_id" property="restId"></result>
+		<result column="file_id" property="fileId"></result>
+		<result column="writer_no" property="writerNo"></result>
+		<result column="menu_name" property="menuName"></result>
+		<result column="reg_date" property="regDate"></result>
+	</resultMap>
+	
+	<select id="selectRestCodeByCodeCategory" resultMap="restCodeMap" parameterType="string">
+		select *
+		from rest_code
+		where code_category = #{codeCategory}
+	</select>
+	
+	<insert id="insertRestBoard" parameterType="restBoardVO">
+		insert into rest_board(
+			rest_id, title, address, new_address, latitude, longitude, phone, 
+			zipcode, image_url, writer, introduce, category_id, holiday_id,
+			opening_hours, payment_id, etc_info, summary, writer_no
+		)
+		values (
+			#{restId}, #{title}, #{address}, #{newAddress}, #{latitude}, #{longitude}, #{phone},
+			#{zipcode}, #{imageUrl}, #{writer}, #{introduce}, #{categoryId}, #{holidayId},
+			#{openingHours}, #{paymentId}, #{etcInfo}, #{summary}, #{writerNo}
+		)
+	</insert>
+	
+	<delete id="deleteRestBoardByRestId" parameterType="int">
+		delete
+		from rest_board
+		where rest_id = #{restId}
+	</delete>
+	
+	<select id="selectRestId" resultMap="restBoardMap" parameterType="int">
+		select *
+		from rest_board
+		where rest_id = #{restId}
+	</select>
+	
+	<select id="selectRestListByBound" resultMap="restBoardMap" parameterType="mapBoundVO">
+		select *
+		from rest_board
+		where latitude between #{south} and #{north}
+		and longitude between #{west} and #{east}
+	</select>
+	
+	
+	<!-- 상세페이지 정보1 : 음식점 기본정보 -->
+	<select id="selectOneRestByRestId" resultMap="restBoardMap" parameterType="int">
+		select 
+		rest_id, title, address, new_address, latitude, longitude,
+		phone, zipcode, image_url, writer, writer_no, introduce, summary, opening_hours,
+		etc_info, view_count, reg_date, category_id, holiday_id, payment_id,
+		(select code_value from rest_code, rest_board where rest_id = #{rest_id} and code_category = 'restCode' and code_id = category_id) as categoryName,
+		(select code_value from rest_code, rest_board where rest_id = #{rest_id} and code_category = 'holiCode' and code_id = holiday_id) as holidayName,
+		(select code_value from rest_code, rest_board where rest_id = #{rest_id} and code_category = 'payCode' and code_id = payment_id) as paymentName,
+		(select avg(score) from rest_comment group by rest_id having rest_id = #{restId} ) as score,
+		(select max(price) from rest_menu group by rest_id having rest_id = #{restId} ) as maxPrice,
+		(select min(price) from rest_menu group by rest_id having rest_id = #{restId} ) as minPrice
+		from rest_board
+		where rest_id = #{restId}
+	</select>
+	
+	<!-- 상세페이지 정보2 : 메뉴 정보  -->
+	<!-- 메뉴테이블 -->
+	<select id="selectRestMenuListByRestId" resultMap="restMenuMap" parameterType="hashMap">
+		select menu_id menuId, m.file_id fileId, f.file_path filePath, writer_no writerNo, menu_name menuName, price, recommend, m.reg_date regDate
+		from rest_menu m, rest_file f
+		where rest_id = #{restId} and m.file_id = f.file_id
+		order by price
+		limit #{start}, #{pageRow}
+	</select>
+	
+	<select id="selectRestMenuCountByRestId" resultType="int" parameterType="int">
+		select count(rest_id)
+		from rest_menu
+		where rest_id = #{restId}
+	</select>
+	
+	<insert id="insertRestMenu" parameterType="restMenuVO">
+		insert into rest_menu (
+			rest_id, file_id, writer_no, menu_name, price, recommend
+		) values (
+			#{restId}, #{fileId}, #{writerNo}, #{menuName}, #{price}, #{recommend}
+		)
+	</insert>
+	
+	<delete id="deleteRestMenuByRestId" parameterType="int">
+		delete
+		from rest_menu
+		where rest_id = #{restId}
+	</delete>
+	
+	<delete id="deleteRestMenu" parameterType="int">
+		delete
+		from rest_menu
+		where menu_id = #{menuId}
+	</delete>
+	
+	<!-- 파일 테이블 -->
+	<select id="selectRestFileByFileId" resultMap="restFileMap" parameterType="int">
+		select *
+		from rest_file
+		where file_id = #{fileId}
+	</select>
+	
+	<insert id="insertRestFile" parameterType="restFileVO" useGeneratedKeys="true" keyProperty="fileId">
+		insert into rest_file (
+			ori_file_name, real_file_name, file_path, file_size
+		) values (
+			#{oriFileName}, #{realFileName}, #{filePath}, #{fileSize}
+		) 
+	</insert>
+
+	<delete id="deleteRestFile" parameterType="int">
+		delete
+		from rest_file
+		where file_id = #{fileId}
+	</delete>
+	
+	<!-- 상세페이지 정보3 : 코멘트및 별점  -->
+	<select id="selectRestCommentListByRestId" resultMap="restCommentMap" parameterType="hashmap">
+		select *
+		from rest_comment
+		where rest_id = #{restId}
+		order by comment_id desc
+		limit #{start}, #{pageRow}
+	</select>
+	
+	<select id="selectRestCommentCountByRestId" resultType="int" parameterType="int">
+		select count(rest_id)
+		from rest_comment
+		where rest_id = #{restId}
+	</select>
+	
+	<insert id="insertRestComment" parameterType="restCommentVO">
+		insert into rest_comment (
+			rest_id, writer_no, score, content
+		)
+		values (
+			#{restId}, #{writerNo}, #{score}, #{content}
+		)
+	</insert>
+	
+	<delete id="deleteRestComment" parameterType="int">
+		delete
+		from rest_comment
+		where comment_id = #{commentId}
+	</delete>
+	
+	<delete id="deleteRestCommentByRestId" parameterType="int">
+		delete
+		from rest_comment
+		where rest_id = #{restId}
+	</delete>
+	
+</mapper>
